@@ -9,7 +9,7 @@ void HIDCOMMS::find_com_ports() {
 
     HKEY h_key;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &h_key) != ERROR_SUCCESS) {
-        std::cerr << "[DATA] Failed to open registry key! Likely no aim device connected." << "\n";
+        std::cerr << "[HIDCOMMS] Failed to open registry key! Likely no aim device connected." << "\n";
         return;
     }
 
@@ -46,7 +46,7 @@ HANDLE HIDCOMMS::connect_to_com_port(const char* port_name, DWORD baud_rate) {
         OPEN_EXISTING, 0, NULL);
 
     if (h_serial == INVALID_HANDLE_VALUE) {
-        std::cerr << "Error: Failed to open port " << port_name << ", Error Code: " << GetLastError() << "\n";
+        std::cerr << "[HIDCOMMS] Failed to open port " << port_name << ", error code: " << GetLastError() << "\n";
         return (HANDLE)-1;
     }
 
@@ -54,7 +54,7 @@ HANDLE HIDCOMMS::connect_to_com_port(const char* port_name, DWORD baud_rate) {
     dcb_serial_parameters.DCBlength = sizeof(dcb_serial_parameters);
 
     if (!GetCommState(h_serial, &dcb_serial_parameters)) {
-        std::cerr << "Error: Failed to get COM state, Error Code: " << GetLastError() << "\n";
+        std::cerr << "[HIDCOMMS] Failed to get COM state, error code: " << GetLastError() << "\n";
         CloseHandle(h_serial);
         return (HANDLE)-2;
     }
@@ -65,7 +65,7 @@ HANDLE HIDCOMMS::connect_to_com_port(const char* port_name, DWORD baud_rate) {
     dcb_serial_parameters.Parity = NOPARITY;
 
     if (!SetCommState(h_serial, &dcb_serial_parameters)) {
-        std::cerr << "Error: Failed to set COM state, Error Code: " << GetLastError() << "\n";
+        std::cerr << "[HIDCOMMS] Failed to set COM state, error code: " << GetLastError() << "\n";
         CloseHandle(h_serial);
         return (HANDLE)-3;
     }
@@ -78,7 +78,7 @@ HANDLE HIDCOMMS::connect_to_com_port(const char* port_name, DWORD baud_rate) {
     timeouts.WriteTotalTimeoutMultiplier = 0;
 
     if (!SetCommTimeouts(h_serial, &timeouts)) {
-        std::cerr << "Error: Failed to set timeouts, Error Code: " << GetLastError() << "\n";
+        std::cerr << "[HIDCOMMS] Failed to set timeouts, error code: " << GetLastError() << "\n";
         CloseHandle(h_serial);
         return (HANDLE)-4;
     }
