@@ -4,19 +4,19 @@ HIDCOMMS::HIDCOMMS() {
     find_com_ports();
 }
 
-void HIDCOMMS::find_com_ports() {
+bool HIDCOMMS::find_com_ports() {
     com_ports.clear();
 
     HKEY h_key;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &h_key) != ERROR_SUCCESS) {
         std::cerr << "[HIDCOMMS] Failed to open registry key! Likely no aim device connected." << "\n";
-        return;
+        return false;
     }
 
     DWORD value_count, max_value_name_length;
     if (RegQueryInfoKey(h_key, NULL, NULL, NULL, NULL, NULL, NULL, &value_count, &max_value_name_length, NULL, NULL, NULL) != ERROR_SUCCESS) {
         RegCloseKey(h_key);
-        return;
+        return false;
     }
 
     std::vector<char> value_name(max_value_name_length + 1);
@@ -38,6 +38,8 @@ void HIDCOMMS::find_com_ports() {
     }
 
     RegCloseKey(h_key);
+
+    return true;
 }
 
 HANDLE HIDCOMMS::connect_to_com_port(const char* port_name, DWORD baud_rate) {

@@ -7,7 +7,7 @@ class HIDCOMMS {
 public:
     HIDCOMMS();
 
-    void find_com_ports();
+    bool find_com_ports();
     HANDLE connect_to_com_port(const char* port_name, DWORD baud_rate);
 
     bool is_connected() const { return com_port && com_port != INVALID_HANDLE_VALUE; }
