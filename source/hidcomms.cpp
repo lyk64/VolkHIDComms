@@ -88,3 +88,175 @@ HANDLE HIDCOMMS::connect_to_com_port(const char* port_name, DWORD baud_rate) {
     connected_to = port_name;
     return h_serial;
 }
+
+bool HIDCOMMS::write(const BYTE* data, DWORD length) {
+    if (!is_connected()) return false;
+
+    DWORD bytes_written;
+    if (!WriteFile(com_port, data, length, &bytes_written, NULL) || bytes_written != length) {
+        std::cerr << "[HIDCOMMS] Failed to write, error code: " << GetLastError() << "\n";
+        return false;
+    }
+    return true;
+}
+
+std::string HIDCOMMS::read_response(DWORD timeout_ms) {
+    if (!is_connected()) return "";
+
+    std::string result;
+    BYTE buffer[1024];
+    ULONGLONG start_time = GetTickCount64();
+
+    while (GetTickCount64() - start_time < timeout_ms) {
+        DWORD bytes_read;
+        if (ReadFile(com_port, buffer, sizeof(buffer), &bytes_read, NULL)) {
+            if (bytes_read > 0) {
+                result.append(reinterpret_cast<char*>(buffer), bytes_read);
+            }
+            else {
+                Sleep(10);
+            }
+        }
+        else {
+            std::cerr << "[HIDCOMMS] Failed to read, error code: " << GetLastError() << "\n";
+            break;
+        }
+    }
+
+    return result;
+}
+
+HANDLE HIDCOMMS::auto_connect() {
+    find_com_ports();
+
+    const DWORD initial_baud_rate = 115200;
+    const DWORD high_baud_rate = 4000000;
+    std::string version_cmd = "km.version()\r\n";
+
+    BYTE makcu_baud_change_cmd[9] = { 0xDE, 0xAD, 0x05, 0x00, 0xA5, 0x00, 0x09, 0x3D, 0x00 };
+
+    for (const auto& port : com_ports) {
+        HANDLE h = connect_to_com_port(port.name.c_str(), initial_baud_rate);
+        if ((intptr_t)h < 0) {
+            continue;
+        }
+
+        com_port = h;
+
+        Sleep(100);
+
+        if (!write(reinterpret_cast<const BYTE*>(version_cmd.data()), version_cmd.size())) {
+            CloseHandle(h);
+            com_port = 0;
+            continue;
+        }
+
+        std::string resp = read_response(1000);
+
+        if (resp.find("Ferrum") != std::string::npos) {
+            CloseHandle(h);
+            com_port = 0;
+
+            h = connect_to_com_port(port.name.c_str(), high_baud_rate);
+            if ((intptr_t)h < 0) {
+                continue;
+            }
+
+            com_port = h;
+            device = "Ferrum";
+            return com_port;
+        }
+        else if (resp.find("MAKCU") != std::string::npos) {
+            if (!write(makcu_baud_change_cmd, sizeof(makcu_baud_change_cmd))) {
+                CloseHandle(h);
+                com_port = 0;
+                continue;
+            }
+
+            std::string change_resp = read_response(1000);
+
+            DCB dcb;
+            memset(&dcb, 0, sizeof(dcb));
+            dcb.DCBlength = sizeof(dcb);
+
+            if (!GetCommState(h, &dcb)) {
+                CloseHandle(h);
+                com_port = 0;
+                continue;
+            }
+
+            dcb.BaudRate = high_baud_rate;
+
+            if (!SetCommState(h, &dcb)) {
+                CloseHandle(h);
+                com_port = 0;
+                continue;
+            }
+
+            PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
+
+            Sleep(100);
+
+            if (!write(reinterpret_cast<const BYTE*>(version_cmd.data()), version_cmd.size())) {
+                CloseHandle(h);
+                com_port = 0;
+                continue;
+            }
+
+            std::string verify_resp = read_response(1000);
+
+            if (verify_resp.find("km.MAKCU") != std::string::npos) {
+                device = "Makcu";
+                return com_port;
+            }
+            else {
+                CloseHandle(h);
+                com_port = 0;
+                continue;
+            }
+        }
+        else {
+            if (!resp.empty()) {
+                device = "Generic B+";
+                return com_port;
+            }
+            else {
+                CloseHandle(h);
+                com_port = 0;
+
+                h = connect_to_com_port(port.name.c_str(), high_baud_rate);
+                if ((intptr_t)h < 0) {
+                    continue;
+                }
+
+                com_port = h;
+
+                Sleep(100);
+
+                if (!write(reinterpret_cast<const BYTE*>(version_cmd.data()), version_cmd.size())) {
+                    CloseHandle(h);
+                    com_port = 0;
+                    continue;
+                }
+
+                resp = read_response(1000);
+
+                if (resp.find("Ferrum") != std::string::npos) {
+                    device = "Ferrum";
+                    return com_port;
+                }
+                else if (resp.find("km.MAKCU") != std::string::npos) {
+                    device = "Makcu";
+                    return com_port;
+                }
+                else {
+                    CloseHandle(h);
+                    com_port = 0;
+                    continue;
+                }
+            }
+        }
+    }
+
+    return (HANDLE)-5;
+}

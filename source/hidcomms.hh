@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <vector>
+#include <string>
 #include <iostream>
 
 class HIDCOMMS {
@@ -10,8 +11,15 @@ public:
     bool find_com_ports();
     HANDLE connect_to_com_port(const char* port_name, DWORD baud_rate);
 
+    HANDLE auto_connect();
+
+    bool write(const BYTE* data, DWORD length);
+
+    std::string read_response(DWORD timeout_ms = 500);
+
     bool is_connected() const { return com_port && com_port != INVALID_HANDLE_VALUE; }
     const std::string& get_connected_to() const { return connected_to; }
+    const std::string& get_device() const { return device; }
 
     struct ComPort {
         std::string name;
@@ -22,4 +30,5 @@ public:
 
 private:
     std::string connected_to;
+    std::string device;
 };
