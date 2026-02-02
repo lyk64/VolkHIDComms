@@ -9,7 +9,9 @@ public:
     HIDCOMMS();
 
     bool find_com_ports();
-    HANDLE connect_to_com_port(const char* port_name, DWORD baud_rate);
+    
+	HANDLE open_com_port(const char* port_name);
+	bool configure_com_port(HANDLE h_serial, DWORD baud_rate);
 
     HANDLE auto_connect();
 
