@@ -1,18 +1,24 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="source">
+    <Filter Include="src">
       <UniqueIdentifier>{eff274b1-0a67-4e40-bd7c-315f034c291c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{a3b4c5d6-e7f8-9012-bcde-f01234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\VolkHIDComms">
+      <UniqueIdentifier>{b4c5d6e7-f8a9-0123-cdef-012345678901}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\hidcomms.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="src\hidcomms.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="source\hidcomms.hh">
-      <Filter>source</Filter>
+    <ClInclude Include="include\VolkHIDComms\hidcomms.hh">
+      <Filter>include\VolkHIDComms</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

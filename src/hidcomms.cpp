@@ -1,4 +1,4 @@
-#include "hidcomms.hh"
+#include "VolkHIDComms/hidcomms.hh"
 
 HIDCOMMS::HIDCOMMS() {
     find_com_ports();
