@@ -1,4 +1,7 @@
 #include "VolkHIDComms/hidcomms.hh"
+#include <VolkLog/log.hh>
+
+static constexpr Volk::Log::Logger logger{ "HIDComms" };
 
 HIDComms::HIDComms() {
     find_com_ports();
@@ -9,7 +12,7 @@ bool HIDComms::find_com_ports() {
 
     HKEY h_key;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &h_key) != ERROR_SUCCESS) {
-        std::cerr << "[HIDComms] Failed to open registry key! Likely no aim device connected." << "\n";
+        logger.error("Failed to open registry key! Likely no aim device connected.");
         return false;
     }
 
@@ -48,7 +51,7 @@ HANDLE HIDComms::open_com_port(const char* port_name) {
         OPEN_EXISTING, 0, NULL);
 
     if (h_serial == INVALID_HANDLE_VALUE) {
-        std::cerr << "[HIDComms] Failed to open port " << port_name << ", error code: " << GetLastError() << "\n";
+        logger.error("Failed to open port {}, error code: {}", port_name, GetLastError());
         return INVALID_HANDLE_VALUE;
     }
 
@@ -60,7 +63,7 @@ HANDLE HIDComms::open_com_port(const char* port_name) {
     timeouts.WriteTotalTimeoutMultiplier = 0;
 
     if (!SetCommTimeouts(h_serial, &timeouts)) {
-        std::cerr << "[HIDComms] Failed to set timeouts, error code: " << GetLastError() << "\n";
+        logger.error("Failed to set timeouts, error code: {}", GetLastError());
         CloseHandle(h_serial);
         return INVALID_HANDLE_VALUE;
     }
@@ -74,7 +77,7 @@ bool HIDComms::configure_com_port(HANDLE h, DWORD baud_rate) {
     dcb.DCBlength = sizeof(dcb);
 
     if (!GetCommState(h, &dcb)) {
-        std::cerr << "[HIDComms] Failed to get COM state, error code: " << GetLastError() << "\n";
+        logger.error("Failed to get COM state, error code: {}", GetLastError());
         return false;
     }
 
@@ -84,7 +87,7 @@ bool HIDComms::configure_com_port(HANDLE h, DWORD baud_rate) {
     dcb.Parity = NOPARITY;
 
     if (!SetCommState(h, &dcb)) {
-        std::cerr << "[HIDComms] Failed to set COM state, error code: " << GetLastError() << "\n";
+        logger.error("Failed to set COM state, error code: {}", GetLastError());
         return false;
     }
 
@@ -94,6 +97,8 @@ bool HIDComms::configure_com_port(HANDLE h, DWORD baud_rate) {
 void HIDComms::disconnect() {
     CloseHandle(com_port);
     com_port = 0;
+    connected_to.clear();
+    device.clear();
 }
 
 bool HIDComms::write(const BYTE* data, DWORD length) {
@@ -101,7 +106,7 @@ bool HIDComms::write(const BYTE* data, DWORD length) {
 
     DWORD bytes_written;
     if (!WriteFile(com_port, data, length, &bytes_written, NULL) || bytes_written != length) {
-        std::cerr << "[HIDComms] Failed to write, error code: " << GetLastError() << "\n";
+        logger.error("Failed to write, error code: {}", GetLastError());
         disconnect();
         return false;
     }
@@ -134,7 +139,7 @@ std::string HIDComms::read_response(DWORD timeout_ms) {
             }
         }
         else {
-            std::cerr << "[HIDComms] Failed to read, error code: " << GetLastError() << "\n";
+            logger.error("Failed to read, error code: {}", GetLastError());
             break;
         }
     }

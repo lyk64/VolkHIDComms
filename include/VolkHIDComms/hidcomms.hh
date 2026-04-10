@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <string_view>
-#include <iostream>
 
 class HIDComms {
 public:
