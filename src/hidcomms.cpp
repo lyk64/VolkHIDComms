@@ -1,15 +1,15 @@
 #include "VolkHIDComms/hidcomms.hh"
 
-HIDCOMMS::HIDCOMMS() {
+HIDComms::HIDComms() {
     find_com_ports();
 }
 
-bool HIDCOMMS::find_com_ports() {
+bool HIDComms::find_com_ports() {
     com_ports.clear();
 
     HKEY h_key;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &h_key) != ERROR_SUCCESS) {
-        std::cerr << "[HIDCOMMS] Failed to open registry key! Likely no aim device connected." << "\n";
+        std::cerr << "[HIDComms] Failed to open registry key! Likely no aim device connected." << "\n";
         return false;
     }
 
@@ -42,13 +42,13 @@ bool HIDCOMMS::find_com_ports() {
     return true;
 }
 
-HANDLE HIDCOMMS::open_com_port(const char* port_name) {
+HANDLE HIDComms::open_com_port(const char* port_name) {
     HANDLE h_serial = CreateFileA(("\\\\.\\" + std::string(port_name)).c_str(),
         GENERIC_READ | GENERIC_WRITE, 0, NULL,
         OPEN_EXISTING, 0, NULL);
 
     if (h_serial == INVALID_HANDLE_VALUE) {
-        std::cerr << "[HIDCOMMS] Failed to open port " << port_name << ", error code: " << GetLastError() << "\n";
+        std::cerr << "[HIDComms] Failed to open port " << port_name << ", error code: " << GetLastError() << "\n";
         return INVALID_HANDLE_VALUE;
     }
 
@@ -60,7 +60,7 @@ HANDLE HIDCOMMS::open_com_port(const char* port_name) {
     timeouts.WriteTotalTimeoutMultiplier = 0;
 
     if (!SetCommTimeouts(h_serial, &timeouts)) {
-        std::cerr << "[HIDCOMMS] Failed to set timeouts, error code: " << GetLastError() << "\n";
+        std::cerr << "[HIDComms] Failed to set timeouts, error code: " << GetLastError() << "\n";
         CloseHandle(h_serial);
         return INVALID_HANDLE_VALUE;
     }
@@ -69,12 +69,12 @@ HANDLE HIDCOMMS::open_com_port(const char* port_name) {
     return h_serial;
 }
 
-bool HIDCOMMS::configure_com_port(HANDLE h, DWORD baud_rate) {
+bool HIDComms::configure_com_port(HANDLE h, DWORD baud_rate) {
     DCB dcb = { 0 };
     dcb.DCBlength = sizeof(dcb);
 
     if (!GetCommState(h, &dcb)) {
-        std::cerr << "[HIDCOMMS] Failed to get COM state, error code: " << GetLastError() << "\n";
+        std::cerr << "[HIDComms] Failed to get COM state, error code: " << GetLastError() << "\n";
         return false;
     }
 
@@ -84,39 +84,39 @@ bool HIDCOMMS::configure_com_port(HANDLE h, DWORD baud_rate) {
     dcb.Parity = NOPARITY;
 
     if (!SetCommState(h, &dcb)) {
-        std::cerr << "[HIDCOMMS] Failed to set COM state, error code: " << GetLastError() << "\n";
+        std::cerr << "[HIDComms] Failed to set COM state, error code: " << GetLastError() << "\n";
         return false;
     }
 
     return true;
 }
 
-void HIDCOMMS::disconnect() {
+void HIDComms::disconnect() {
     CloseHandle(com_port);
     com_port = 0;
 }
 
-bool HIDCOMMS::write(const BYTE* data, DWORD length) {
+bool HIDComms::write(const BYTE* data, DWORD length) {
     if (!is_connected()) return false;
 
     DWORD bytes_written;
     if (!WriteFile(com_port, data, length, &bytes_written, NULL) || bytes_written != length) {
-        std::cerr << "[HIDCOMMS] Failed to write, error code: " << GetLastError() << "\n";
+        std::cerr << "[HIDComms] Failed to write, error code: " << GetLastError() << "\n";
         disconnect();
         return false;
     }
     return true;
 }
 
-bool HIDCOMMS::write(std::string_view data) {
+bool HIDComms::write(std::string_view data) {
     return write(reinterpret_cast<const BYTE*>(data.data()), static_cast<DWORD>(data.size()));
 }
 
-bool HIDCOMMS::move(long x, long y) {
+bool HIDComms::move(long x, long y) {
     return write("km.move(" + std::to_string(x) + "," + std::to_string(y) + ")\r");
 }
 
-std::string HIDCOMMS::read_response(DWORD timeout_ms) {
+std::string HIDComms::read_response(DWORD timeout_ms) {
     if (!is_connected()) return "";
 
     std::string result;
@@ -134,7 +134,7 @@ std::string HIDCOMMS::read_response(DWORD timeout_ms) {
             }
         }
         else {
-            std::cerr << "[HIDCOMMS] Failed to read, error code: " << GetLastError() << "\n";
+            std::cerr << "[HIDComms] Failed to read, error code: " << GetLastError() << "\n";
             break;
         }
     }
@@ -142,7 +142,7 @@ std::string HIDCOMMS::read_response(DWORD timeout_ms) {
     return result;
 }
 
-void HIDCOMMS::auto_connect() {
+void HIDComms::auto_connect() {
     find_com_ports();
 
     const DWORD initial_baud_rate = 115200;

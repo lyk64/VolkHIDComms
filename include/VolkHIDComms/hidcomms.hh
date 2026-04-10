@@ -5,14 +5,14 @@
 #include <string_view>
 #include <iostream>
 
-class HIDCOMMS {
+class HIDComms {
 public:
     struct ComPort {
         std::string name;
         std::string device_path;
     };
 
-    HIDCOMMS();
+    HIDComms();
 
     void auto_connect();
     void disconnect();
