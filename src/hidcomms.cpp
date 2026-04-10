@@ -91,15 +91,29 @@ bool HIDCOMMS::configure_com_port(HANDLE h, DWORD baud_rate) {
     return true;
 }
 
+void HIDCOMMS::disconnect() {
+    CloseHandle(com_port);
+    com_port = 0;
+}
+
 bool HIDCOMMS::write(const BYTE* data, DWORD length) {
     if (!is_connected()) return false;
 
     DWORD bytes_written;
     if (!WriteFile(com_port, data, length, &bytes_written, NULL) || bytes_written != length) {
         std::cerr << "[HIDCOMMS] Failed to write, error code: " << GetLastError() << "\n";
+        disconnect();
         return false;
     }
     return true;
+}
+
+bool HIDCOMMS::write(std::string_view data) {
+    return write(reinterpret_cast<const BYTE*>(data.data()), static_cast<DWORD>(data.size()));
+}
+
+bool HIDCOMMS::move(long x, long y) {
+    return write("km.move(" + std::to_string(x) + "," + std::to_string(y) + ")\r");
 }
 
 std::string HIDCOMMS::read_response(DWORD timeout_ms) {
@@ -128,20 +142,19 @@ std::string HIDCOMMS::read_response(DWORD timeout_ms) {
     return result;
 }
 
-HANDLE HIDCOMMS::auto_connect() {
+void HIDCOMMS::auto_connect() {
     find_com_ports();
 
     const DWORD initial_baud_rate = 115200;
     const DWORD high_baud_rate = 4000000;
-    std::string version_cmd = "km.version()\r\n";
+    const std::string_view version_cmd = "km.version()\r\n";
 
     BYTE makcu_baud_change_cmd[9] = { 0xDE, 0xAD, 0x05, 0x00, 0xA5, 0x00, 0x09, 0x3D, 0x00 };
 
     for (const auto& port : com_ports) {
         HANDLE h = open_com_port(port.name.c_str());
-        if (h == INVALID_HANDLE_VALUE) {
+        if (h == INVALID_HANDLE_VALUE)
             continue;
-        }
 
         if (!configure_com_port(h, initial_baud_rate)) {
             CloseHandle(h);
@@ -151,92 +164,71 @@ HANDLE HIDCOMMS::auto_connect() {
         com_port = h;
         Sleep(100);
 
-        if (!write(reinterpret_cast<const BYTE*>(version_cmd.data()), version_cmd.size())) {
-            CloseHandle(h);
-            com_port = 0;
+        if (!write(version_cmd))
             continue;
-        }
 
         std::string resp = read_response(1000);
 
         if (resp.find("Ferrum") != std::string::npos) {
             if (!configure_com_port(h, high_baud_rate)) {
-                CloseHandle(h);
-                com_port = 0;
+                disconnect();
                 continue;
             }
             device = "Ferrum";
-            return com_port;
+            return;
         }
         else if (resp.find("MAKCU") != std::string::npos) {
-            if (!write(makcu_baud_change_cmd, sizeof(makcu_baud_change_cmd))) {
-                CloseHandle(h);
-                com_port = 0;
+            if (!write(makcu_baud_change_cmd, sizeof(makcu_baud_change_cmd)))
                 continue;
-            }
 
             read_response(1000);
 
             if (!configure_com_port(h, high_baud_rate)) {
-                CloseHandle(h);
-                com_port = 0;
+                disconnect();
                 continue;
             }
 
             PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
             Sleep(100);
 
-            if (!write(reinterpret_cast<const BYTE*>(version_cmd.data()), version_cmd.size())) {
-                CloseHandle(h);
-                com_port = 0;
+            if (!write(version_cmd))
                 continue;
-            }
 
             std::string verify_resp = read_response(1000);
             if (verify_resp.find("km.MAKCU") != std::string::npos) {
                 device = "Makcu";
-                return com_port;
+                return;
             }
 
-            CloseHandle(h);
-            com_port = 0;
-            continue;
+            disconnect();
         }
         else if (!resp.empty()) {
             device = "Generic B+";
-            return com_port;
+            return;
         }
         else {
             if (!configure_com_port(h, high_baud_rate)) {
-                CloseHandle(h);
-                com_port = 0;
+                disconnect();
                 continue;
             }
 
             Sleep(100);
 
-            if (!write(reinterpret_cast<const BYTE*>(version_cmd.data()), version_cmd.size())) {
-                CloseHandle(h);
-                com_port = 0;
+            if (!write(version_cmd))
                 continue;
-            }
 
             resp = read_response(1000);
 
             if (resp.find("Ferrum") != std::string::npos) {
                 device = "Ferrum";
-                return com_port;
+                return;
             }
             else if (resp.find("km.MAKCU") != std::string::npos) {
                 device = "Makcu";
-                return com_port;
+                return;
             }
 
-            CloseHandle(h);
-            com_port = 0;
-            continue;
+            disconnect();
         }
     }
-
-    return (HANDLE)-5;
 }
