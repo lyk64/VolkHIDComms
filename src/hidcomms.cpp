@@ -3,7 +3,7 @@
 
 namespace volk::hid {
 
-static constexpr Volk::Log::Logger logger{ "HIDComms" };
+static constexpr volk::log::Logger logger{ "HIDComms" };
 
 Connection::Connection() {
     find_com_ports();
