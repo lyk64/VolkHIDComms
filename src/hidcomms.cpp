@@ -1,13 +1,15 @@
 #include "VolkHIDComms/hidcomms.hh"
 #include <VolkLog/log.hh>
 
+namespace volk::hid {
+
 static constexpr Volk::Log::Logger logger{ "HIDComms" };
 
-HIDComms::HIDComms() {
+Connection::Connection() {
     find_com_ports();
 }
 
-bool HIDComms::find_com_ports() {
+bool Connection::find_com_ports() {
     com_ports.clear();
 
     HKEY h_key;
@@ -45,7 +47,7 @@ bool HIDComms::find_com_ports() {
     return true;
 }
 
-HANDLE HIDComms::open_com_port(const char* port_name) {
+HANDLE Connection::open_com_port(const char* port_name) {
     HANDLE h_serial = CreateFileA(("\\\\.\\" + std::string(port_name)).c_str(),
         GENERIC_READ | GENERIC_WRITE, 0, NULL,
         OPEN_EXISTING, 0, NULL);
@@ -72,7 +74,7 @@ HANDLE HIDComms::open_com_port(const char* port_name) {
     return h_serial;
 }
 
-bool HIDComms::configure_com_port(HANDLE h, DWORD baud_rate) {
+bool Connection::configure_com_port(HANDLE h, DWORD baud_rate) {
     DCB dcb = { 0 };
     dcb.DCBlength = sizeof(dcb);
 
@@ -94,14 +96,14 @@ bool HIDComms::configure_com_port(HANDLE h, DWORD baud_rate) {
     return true;
 }
 
-void HIDComms::disconnect() {
+void Connection::disconnect() {
     CloseHandle(com_port);
     com_port = 0;
     connected_to.clear();
     device.clear();
 }
 
-bool HIDComms::write(const BYTE* data, DWORD length) {
+bool Connection::write(const BYTE* data, DWORD length) {
     if (!is_connected()) return false;
 
     DWORD bytes_written;
@@ -113,15 +115,15 @@ bool HIDComms::write(const BYTE* data, DWORD length) {
     return true;
 }
 
-bool HIDComms::write(std::string_view data) {
+bool Connection::write(std::string_view data) {
     return write(reinterpret_cast<const BYTE*>(data.data()), static_cast<DWORD>(data.size()));
 }
 
-bool HIDComms::move(long x, long y) {
+bool Connection::move(long x, long y) {
     return write("km.move(" + std::to_string(x) + "," + std::to_string(y) + ")\r");
 }
 
-std::string HIDComms::read_response(DWORD timeout_ms) {
+std::string Connection::read_response(DWORD timeout_ms) {
     if (!is_connected()) return "";
 
     std::string result;
@@ -147,7 +149,7 @@ std::string HIDComms::read_response(DWORD timeout_ms) {
     return result;
 }
 
-void HIDComms::auto_connect() {
+void Connection::auto_connect() {
     find_com_ports();
 
     const DWORD initial_baud_rate = 115200;
@@ -237,3 +239,5 @@ void HIDComms::auto_connect() {
         }
     }
 }
+
+} // namespace volk::hid

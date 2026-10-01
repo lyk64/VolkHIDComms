@@ -4,14 +4,16 @@
 #include <string>
 #include <string_view>
 
-class HIDComms {
+namespace volk::hid {
+
+class Connection {
 public:
     struct ComPort {
         std::string name;
         std::string device_path;
     };
 
-    HIDComms();
+    Connection();
 
     void auto_connect();
     void disconnect();
@@ -37,3 +39,5 @@ private:
     std::string connected_to;
     std::string device;
 };
+
+} // namespace volk::hid
