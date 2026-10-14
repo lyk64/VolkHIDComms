@@ -126,17 +126,23 @@ bool Connection::move(long x, long y) {
 std::string Connection::read_response(DWORD timeout_ms) {
     if (!is_connected()) return "";
 
+    constexpr ULONGLONG quiet_after_reply_ms = 30;
+
     std::string result;
     BYTE buffer[1024];
     ULONGLONG start_time = GetTickCount64();
+    ULONGLONG last_data_time = 0;
 
     while (GetTickCount64() - start_time < timeout_ms) {
         DWORD bytes_read;
         if (ReadFile(com_port, buffer, sizeof(buffer), &bytes_read, NULL)) {
             if (bytes_read > 0) {
                 result.append(reinterpret_cast<char*>(buffer), bytes_read);
+                last_data_time = GetTickCount64();
             }
             else {
+                if (!result.empty() && GetTickCount64() - last_data_time >= quiet_after_reply_ms)
+                    break;
                 Sleep(10);
             }
         }
