@@ -3,7 +3,7 @@
 
 namespace volk::hid {
 
-static constexpr volk::log::Logger logger{ "HIDComms" };
+static constexpr volk::log::Logger logger{ "hid" };
 
 Connection::Connection() {
     find_com_ports();
@@ -14,7 +14,7 @@ bool Connection::find_com_ports() {
 
     HKEY h_key;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &h_key) != ERROR_SUCCESS) {
-        logger.error("Failed to open registry key! Likely no aim device connected.");
+        logger.warn("No aim device connected (the SERIALCOMM registry key is missing).");
         return false;
     }
 
@@ -53,7 +53,7 @@ HANDLE Connection::open_com_port(const char* port_name) {
         OPEN_EXISTING, 0, NULL);
 
     if (h_serial == INVALID_HANDLE_VALUE) {
-        logger.error("Failed to open port {}, error code: {}", port_name, GetLastError());
+        logger.error("Failed to open port {} (error {}).", port_name, GetLastError());
         return INVALID_HANDLE_VALUE;
     }
 
@@ -65,7 +65,7 @@ HANDLE Connection::open_com_port(const char* port_name) {
     timeouts.WriteTotalTimeoutMultiplier = 0;
 
     if (!SetCommTimeouts(h_serial, &timeouts)) {
-        logger.error("Failed to set timeouts, error code: {}", GetLastError());
+        logger.error("Failed to set timeouts (error {}).", GetLastError());
         CloseHandle(h_serial);
         return INVALID_HANDLE_VALUE;
     }
@@ -79,7 +79,7 @@ bool Connection::configure_com_port(HANDLE h, DWORD baud_rate) {
     dcb.DCBlength = sizeof(dcb);
 
     if (!GetCommState(h, &dcb)) {
-        logger.error("Failed to get COM state, error code: {}", GetLastError());
+        logger.error("Failed to get the COM state (error {}).", GetLastError());
         return false;
     }
 
@@ -89,7 +89,7 @@ bool Connection::configure_com_port(HANDLE h, DWORD baud_rate) {
     dcb.Parity = NOPARITY;
 
     if (!SetCommState(h, &dcb)) {
-        logger.error("Failed to set COM state, error code: {}", GetLastError());
+        logger.error("Failed to set the COM state (error {}).", GetLastError());
         return false;
     }
 
@@ -108,7 +108,7 @@ bool Connection::write(const BYTE* data, DWORD length) {
 
     DWORD bytes_written;
     if (!WriteFile(com_port, data, length, &bytes_written, NULL) || bytes_written != length) {
-        logger.error("Failed to write, error code: {}", GetLastError());
+        logger.error("Failed to write (error {}).", GetLastError());
         disconnect();
         return false;
     }
@@ -141,7 +141,7 @@ std::string Connection::read_response(DWORD timeout_ms) {
             }
         }
         else {
-            logger.error("Failed to read, error code: {}", GetLastError());
+            logger.error("Failed to read (error {}).", GetLastError());
             break;
         }
     }
